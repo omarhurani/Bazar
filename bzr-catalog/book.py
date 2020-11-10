@@ -22,6 +22,20 @@ class Book(db.Model):
     def get(cls, id):
         return Book.query.get(id)
 
+    @classmethod
+    def buy(cls, id):
+        book = Book.query.get(id)
+        if book is None:
+            return book
+        if book.quantity <= 0:
+            raise cls.OutOfStockError()
+        book.quantity -= 1
+        db.session.commit()
+        return book
+
+    class OutOfStockError(Exception):
+        pass
+
 
 # Add the 4 books as an initial entry to the database
 database_init += [

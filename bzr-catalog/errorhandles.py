@@ -11,3 +11,8 @@ def not_found(e):
 def internal_server_error(e):
     return {'message': 'The server encountered an internal error and was unable to complete your request. Either the '
                        'server is overloaded or there is an error in the application.'}, 500
+
+
+@app.errorhandler(405)
+def internal_server_error(e):
+    return {'message': 'The method is not allowed for the requested URL.'}, 405
