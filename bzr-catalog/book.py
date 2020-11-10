@@ -1,5 +1,4 @@
 from database import db, marshmallow, database_init
-from sqlalchemy import func
 
 
 class Book(db.Model):
@@ -17,7 +16,7 @@ class Book(db.Model):
 
     @classmethod
     def search(cls, topic):
-        return Book.query.filter(func.lower(Book.topic) == func.lower(topic))
+        return Book.query.filter(Book.topic.ilike(f'%{topic}%'))
 
     @classmethod
     def get(cls, id):
