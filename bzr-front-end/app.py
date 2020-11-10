@@ -1,12 +1,7 @@
+from flask_app import app
 from flask import Flask
 import errorhandlers
-
-app = Flask(__name__)
-
-
-@app.route('/')
-def hello_world():
-    return 'Hello World!'
+import routes
 
 
 if __name__ == '__main__':
