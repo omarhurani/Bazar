@@ -14,5 +14,5 @@ def internal_server_error(e):
 
 
 @app.errorhandler(405)
-def internal_server_error(e):
+def method_not_allowed(e):
     return {'message': 'The method is not allowed for the requested URL.'}, 405
