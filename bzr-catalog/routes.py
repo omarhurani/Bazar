@@ -13,8 +13,6 @@ def search(book_topic):
 # Lookup endpoint
 @app.route('/lookup/<book_id>', methods=['GET'])
 def lookup(book_id):
-    if not book_id.isnumeric():
-        return {'message': 'Book ID must be a number'}, 422
     book = Book.get(book_id)
     if book is None:
         return {'message': 'Book with the specified ID was not found'}, 404
