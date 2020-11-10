@@ -25,10 +25,11 @@ def configure_database(app: Flask):
 # create global database and marshmallow instances
 db, marshmallow = configure_database(app)
 
-
+# Objects that should be initially added when the database is created
 database_init = []
 
 
+# create the database if it does not exist and add all initial objects
 def create_database():
     if not db or os.path.exists(os.path.join(database_dir, 'db.sqlite')):
         return

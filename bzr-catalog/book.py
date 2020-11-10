@@ -7,19 +7,24 @@ class Book(db.Model):
     title = db.Column(db.String(200), nullable=False,)
     topic = db.Column(db.String(200), nullable=False,)
     quantity = db.Column(db.Integer, nullable=False, default=0,)
-    cost = db.Column(db.Float, nullable=False)
+    price = db.Column(db.Float, nullable=False)
 
-    def __init__(self, title, topic, quantity, cost):
+    def __init__(self, title, topic, quantity, price):
         self.title = title
         self.quantity = quantity
         self.topic = topic
-        self.cost = cost
+        self.price = price
 
     @classmethod
     def search(cls, topic):
         return Book.query.filter(func.lower(Book.topic) == func.lower(topic))
 
+    @classmethod
+    def get(cls, id):
+        return Book.query.get(id)
 
+
+# Add the 4 books as an initial entry to the database
 database_init += [
     Book('How to get a good grade in DOS in 20 minutes a day', 'Distributed Systems', 10, 25.00),
     Book('RPCs for Dummies', 'Distributed Systems', 5, 50.00),
@@ -35,7 +40,7 @@ class BookSearchSchema(marshmallow.Schema):
 
 class BookLookupSchema(marshmallow.Schema):
     class Meta:
-        fields = ('id', 'title', 'topic', 'quantity', 'cost')
+        fields = ('title', 'quantity', 'price')
 
 
 book_lookup_schema = BookLookupSchema()
