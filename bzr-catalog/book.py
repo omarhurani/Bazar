@@ -1,4 +1,5 @@
-from database import db, marshmallow
+from database import db, marshmallow, database_init
+from sqlalchemy import func
 
 
 class Book(db.Model):
@@ -14,16 +15,30 @@ class Book(db.Model):
         self.topic = topic
         self.cost = cost
 
+    @classmethod
+    def search(cls, topic):
+        return Book.query.filter(func.lower(Book.topic) == func.lower(topic))
 
-class BookBriefSchema(marshmallow.Schema):
+
+database_init += [
+    Book('How to get a good grade in DOS in 20 minutes a day', 'Distributed Systems', 10, 25.00),
+    Book('RPCs for Dummies', 'Distributed Systems', 5, 50.00),
+    Book('Xen and the Art of Surviving Graduate School', 'Graduate School', 10, 15.00),
+    Book('Cooking for the Impatient Graduate Student', 'Graduate School', 25, 10.00)
+]
+
+
+class BookSearchSchema(marshmallow.Schema):
     class Meta:
-        fields = ('id', 'title', 'topic')
+        fields = ('id', 'title')
 
 
-class BookSchema(marshmallow.Schema):
+class BookLookupSchema(marshmallow.Schema):
     class Meta:
         fields = ('id', 'title', 'topic', 'quantity', 'cost')
 
 
-book_schema = BookSchema(strict=True)
-books_schema = BookBriefSchema(many=True, strict=True)
+book_lookup_schema = BookLookupSchema()
+books_search_schema = BookSearchSchema(many=True)
+
+

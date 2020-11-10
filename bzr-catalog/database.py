@@ -26,7 +26,13 @@ def configure_database(app: Flask):
 db, marshmallow = configure_database(app)
 
 
+database_init = []
+
+
 def create_database():
     if not db or os.path.exists(os.path.join(database_dir, 'db.sqlite')):
         return
     db.create_all()
+    for item in database_init:
+        db.session.add(item)
+    db.session.commit()
