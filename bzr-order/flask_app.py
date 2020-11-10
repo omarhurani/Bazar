@@ -3,7 +3,7 @@ from os import environ
 
 app = Flask(__name__)
 
-ORDER_ADDRESS = environ.get('ORDER_ADDRESS')
+CATALOG_ADDRESS = environ.get('CATALOG_ADDRESS')
 FRONT_END_ADDRESS = environ.get('FRONT_END_ADDRESS')
 
 
