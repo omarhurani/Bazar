@@ -9,3 +9,5 @@ ORDER_ADDRESS = environ.get('ORDER_ADDRESS')
 
 app.config['FLASK_ENV'] = environ.get('FLASK_ENV')
 app.config['FLASK_DEBUG'] = bool(environ.get('FLASK_DEBUG'))
+
+port = int(environ.get('FLASK_PORT'))
