@@ -4,32 +4,32 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow
 import os
 
-# base directory for database
+# Base directory for database
 database_dir = os.path.abspath(os.path.dirname(__file__))
 
 
 def configure_database(app: Flask):
-    # initialize database configurations
+    # Initialize database configurations
     app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{os.path.join(database_dir, 'db.sqlite')}"
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-    # create Database instance
+    # Create Database instance
     db = SQLAlchemy(app)
 
-    # create Marshmallow instance
+    # Create Marshmallow instance
     marshmallow = Marshmallow(app)
 
     return db, marshmallow
 
 
-# create global database and marshmallow instances
+# Create global Database and Marshmallow instances
 db, marshmallow = configure_database(app)
 
 # Objects that should be initially added when the database is created
 database_init = []
 
 
-# create the database if it does not exist and add all initial objects
+# Create the database if it does not exist and add all initial objects
 def create_database():
     if not db or os.path.exists(os.path.join(database_dir, 'db.sqlite')):
         return

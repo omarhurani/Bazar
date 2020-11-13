@@ -4,7 +4,7 @@ from os import environ
 # Flask application instance
 app = Flask(__name__)
 
-# Get addresses of catalog and order servers from the environment variables
+# Get addresses of catalog and front end servers from the environment variables
 CATALOG_ADDRESS = environ.get('CATALOG_ADDRESS')
 FRONT_END_ADDRESS = environ.get('FRONT_END_ADDRESS')
 
