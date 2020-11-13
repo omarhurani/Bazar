@@ -56,7 +56,7 @@ database_init += [
 # Define Marshmallow Formatter Schema class for query-by-topic response fields
 class TopicSchema(marshmallow.Schema):
     class Meta:
-        fields = ('id', 'title')
+        fields = ('id', 'title', 'topic')
 
 
 # Define Marshmallow Formatter Schema class for query-by-item response fields
