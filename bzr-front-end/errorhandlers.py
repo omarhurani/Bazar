@@ -1,5 +1,7 @@
 from flask_app import app
 
+# Override the default error messages to JSON messages
+
 
 @app.errorhandler(404)
 def not_found(e):
