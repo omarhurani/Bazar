@@ -36,9 +36,9 @@ class Book(db.Model):
         if book is None:
             return None
         book.title = title if title is not None else book.title
-        book.quantity = quantity if quantity is not None else book.quantity
+        book.quantity = quantity if quantity is not None and quantity >= 0 else book.quantity
         book.topic = topic if topic is not None else book.topic
-        book.price = price if price is not None else book.price
+        book.price = price if price is not None and price >= 0.0 else book.price
 
         db.session.commit()
         return book
