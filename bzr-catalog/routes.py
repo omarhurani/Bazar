@@ -63,9 +63,9 @@ def update(book_id):
     # The [get] method for the Python dictionary returns None by default if the key does not exist
     # This makes it such that any field that was not in the request will be passed as None, and doesn't get modified
     book = Book.update(book_id,
-                       title=book_data.get('title'),
+                       # title=book_data.get('title'),
                        quantity=book_data.get('quantity'),
-                       topic=book_data.get('topic'),
+                       # topic=book_data.get('topic'),
                        price=book_data.get('price'))
 
     # If the book is None, that means that it doesn't exist in the database, so return an error message
