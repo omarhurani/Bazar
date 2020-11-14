@@ -96,7 +96,7 @@ URI | Methods | Description
 --- | ------- | -----------
 `/query/item/<id>` | `GET` | Query a book using its `id`. Returns a single JSON object containing book information if successful.
 `/query/topic/<topic>` | `GET` | Query books using their topic. Returns a list of JSON objects containing book IDs, names and topics.
-`/update/<id>` | `PUT` | Update book using its `id` based on fields sent in the request body. Returns the updated book fields if successful.
+`/update/<id>` | `PUT` | Update book using its `id` based on fields sent in the request body. Supports `price` and `quantity` fields. Returns the updated book fields if successful.
 
 
 #### Order
@@ -110,7 +110,7 @@ URI | Methods | Description
 --- | ------- | -----------
 `/lookup/<id>` | `GET` | Look up a book using its ID. Returns a single JSON object containing book information if successful. `id` must be a number.
 `/search/<topic>` | `GET` | Search for books using their `topic`. Returns a list of JSON objects containing book IDs, names and topics.
-`/update/<id>` | `PUT` | Request to purchase a book using its `id`. Returns a JSON object with a `success` field determining whether the operation was succesful or not and a `message` field to describe what happened. `id` must be a number.
+`/buy/<id>` | `PUT` | Request to purchase a book using its `id`. Returns a JSON object with a `success` field determining whether the operation was succesful or not and a `message` field to describe what happened. `id` must be a number.
 
 ## Example
 In this example, the sequence of actions is as follows:
