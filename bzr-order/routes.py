@@ -1,6 +1,8 @@
 from flask_app import app, CATALOG_ADDRESS
 import requests
 
+timeout = 1
+
 
 # Buy endpoint
 @app.route('/buy/<book_id>', methods=['PUT'])
@@ -10,7 +12,10 @@ def buy(book_id):
         return {'message': 'Book ID must be a number'}, 422
 
     # Query the book from the catalog server
-    book_response = requests.get(f'{CATALOG_ADDRESS}/query/item/{book_id}')
+    try:
+        book_response = requests.get(f'{CATALOG_ADDRESS}/query/item/{book_id}', timeout=timeout)
+    except requests.Timeout:
+        return {'message': 'Could not connect to the catalog server'}, 504
 
     # If the response status is 404 not found, override the error message
     if book_response.status_code == 404:
@@ -28,7 +33,10 @@ def buy(book_id):
         return {'success': False, 'message': 'Book with the specified ID is out of stock'}
 
     # Otherwise, update the book quantity on the catalog server using the update message
-    buy_response = requests.put(f'{CATALOG_ADDRESS}/update/{book_id}', json={'quantity': book['quantity']-1})
+    try:
+        buy_response = requests.put(f'{CATALOG_ADDRESS}/update/{book_id}', json={'quantity': book['quantity']-1}, timeout=timeout)
+    except requests.Timeout:
+        return {'message': 'Could not connect to the catalog server'}, 504
 
     # If any error occurs while updating, return the error as-is
     if buy_response.status_code != 200:
