@@ -5,8 +5,9 @@ from os import environ
 app = Flask(__name__)
 
 # Get addresses of catalog and order servers from the environment variables
-CATALOG_ADDRESS = environ.get('CATALOG_ADDRESS')
-ORDER_ADDRESS = environ.get('ORDER_ADDRESS')
+# Addresses are split by a '|'
+CATALOG_ADDRESSES = environ.get('CATALOG_ADDRESSES').split('|')
+ORDER_ADDRESSES = environ.get('ORDER_ADDRESSES').split('|')
 
 
 # Get the flask environment settings from the environment variables
