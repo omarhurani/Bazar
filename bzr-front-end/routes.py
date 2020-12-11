@@ -1,7 +1,7 @@
 from flask import jsonify
 
 from flask_app import app
-from replication import replication
+from replication import replication, timeout
 from cache import lookup_cache, search_cache
 import requests
 
@@ -22,7 +22,7 @@ def search(book_topic):
     for request_try in range(tries):
         try:
             # Get book from the catalog server
-            response = requests.get(f'{replication.get_catalog_address()}/query/topic/{book_topic}')
+            response = requests.get(f'{replication.get_catalog_address()}/query/topic/{book_topic}', timeout=timeout)
             break
         except requests.Timeout:
             pass
@@ -64,7 +64,7 @@ def lookup(book_id):
     for request_try in range(tries):
         try:
             # Get the list of books from the catalog server
-            response = requests.get(f'{replication.get_catalog_address()}/query/item/{book_id}')
+            response = requests.get(f'{replication.get_catalog_address()}/query/item/{book_id}', timeout=timeout)
             break
         except requests.Timeout:
             pass
@@ -97,7 +97,9 @@ def buy(book_id):
     for request_try in range(tries):
         try:
             # Forward the request to the order server
-            response = requests.put(f'{replication.get_order_address()}/buy/{book_id}')
+            response = requests.put(f'{replication.get_order_address()}/buy/{book_id}', timeout=timeout)
+            if response.status_code == 504:
+                continue
             break
         except requests.Timeout:
             pass
