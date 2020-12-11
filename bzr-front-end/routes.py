@@ -105,7 +105,7 @@ def buy(book_id):
             pass
     # If the loop completes all tries without being able to reach a server
     else:
-        return {'message': 'Could not connect to a server to search'}, 504
+        return {'message': 'Could not connect to a server to lookup'}, 504
 
     # Return the response from the order server as-is
     return response.text, response.status_code, response.headers.items()
