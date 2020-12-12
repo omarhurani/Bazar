@@ -97,7 +97,7 @@ def buy(book_id):
     for request_try in range(tries):
         try:
             # Forward the request to the order server
-            response = requests.put(f'{replication.get_order_address()}/buy/{book_id}', timeout=timeout)
+            response = requests.put(f'{replication.get_order_address()}/buy/{book_id}', timeout=timeout*5)
             if response.status_code == 504:
                 continue
             break
