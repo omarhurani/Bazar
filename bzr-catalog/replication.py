@@ -1,0 +1,152 @@
+import random
+
+from flask_app import CATALOG_ADDRESSES, app
+from requests import Timeout
+from book import Book, replication_schema
+from flask import request
+from netaddr import IPNetwork
+
+import requests
+
+
+timeout = 1
+
+
+class Replication:
+
+    class CouldNotGetUpdatedError(RuntimeError):
+        pass
+
+    def __init__(self, catalog_addresses):
+        self.catalog_addresses = catalog_addresses
+        if type(self.catalog_addresses) is not list:
+            self.catalog_addresses = []
+            self.updated_ids = set([])
+
+    def update(self, id, book_info):
+        # If no other catalog servers are registered, no need for replication measures
+        if len(self.catalog_addresses) == 0:
+            Book.update(id,
+                        # title=book_data.get('title'),
+                        quantity=book_info.get('quantity'),
+                        # topic=book_data.get('topic'),
+                        price=book_info.get('price'))
+            return
+        # Keep requesting updates to all other catalog servers
+        # until the write can be performed on the most up-to-date version
+        prev_max_item = book_info
+        sequence_number = Book.get(id).sequence_number
+        while True:
+            max_item = book_info
+            for server in self.catalog_addresses:
+                # Should spawn threads to handle multiple concurrent requests
+                try:
+                    # Request other servers to update the book
+                    response = requests.put(f'{server}/rep/update/{id}',
+                                            data={**max_item, 'sequence_number': sequence_number})
+
+                    # If object is out of date, update the object of maximum sequence number
+                    if response.status_code == 409:
+                        if max_item is None or max_item['sequence_number'] < response.json()['sequence_number']:
+                            max_item = response.json()
+
+                except Timeout:
+                    pass
+
+            # If no object was out of date, the previous max item wouldn't be updated
+            if prev_max_item == max_item:
+                break
+            else:
+                prev_max_item = max_item
+
+        # Update book with the values of the most up-to-date book in all replicas
+        Book.update(id, **prev_max_item)
+
+        # Mark book as updated
+        self.updated_ids.add(id)
+
+        return max_item
+
+    def get(self, id, requesters: list = None):
+        # If item is tracked as up-to-date, return
+        if id in self.updated_ids:
+            return Book.get(id)
+
+        # Filter out all servers which were requested before for this item
+        available_servers = self.get_catalog_addresses_pure() if requesters is None else \
+            [server for server in self.get_catalog_addresses_pure()
+             if len([requester for requester in requesters if IPNetwork(server) == IPNetwork(requester)]) == 0]
+
+        # If no server was left, raise an error
+        if len(available_servers) == 0:
+            raise self.CouldNotGetUpdatedError()
+
+        # Send a read request of the most up-to-date book to a random catalog server
+        server = random.choice(available_servers)
+        response = requests.get(f'{server}/rep/get/{id}',
+                                data={'requesters': requesters if requesters is not None else []})
+
+        # If the item could not be retrieved raise an error
+        if response.status_code != 200:
+            raise self.CouldNotGetUpdatedError()
+
+        # Update sequence number manually if it is in the info
+        new_book_info = response.json()
+        if 'sequence_number' in new_book_info:
+            new_book_info['sequence_number'] += 1
+
+        # Update the book with the retrieved book
+        Book.update(id, **new_book_info)
+
+        # Mark this item as updated
+        self.updated_ids.add(id)
+
+        return Book.get(id)
+
+    def get_catalog_addresses_pure(self):
+        return [address.replace('http://', "").replace('https://', "") for address in self.catalog_addresses]
+
+
+replication = Replication(CATALOG_ADDRESSES)
+
+
+@app.route('/rep/update/<book_id>', methods=['PUT'])
+def replication_update(book_id):
+    book_info = request.json
+
+    book = Book.get(book_id)
+
+    # If local book is newer than the edit request, reject update
+    if book.sequence_number > book_info['sequence_number']:
+        return replication_schema.jsonify(book), 409  # 409 Conflict
+
+    # Update sequence number manually
+    book_info['sequence_number'] += 1
+
+    # Update the book with the retrieved book
+    Book.update(id, **book_info)
+
+    return replication_schema.jsonify(book)
+
+
+@app.route('/rep/get/<book_id>', methods=['GET'])
+def replication_get(book_id):
+
+    # Get list of servers that are requesting this item
+    requesters = list(request.json['requesters'])
+
+    # Add the remote address (the server who sent this request) to the list
+    requesters.append(request.remote_addr)
+
+    try:
+        # Get the book from replication
+        book = replication.get(int(book_id), requesters=requesters)
+
+    # If book could not be retrieved (nobody has it)
+    except Replication.CouldNotGetUpdatedError:
+        return {'message': 'Not found'}, 404
+
+    if book is None:
+        return {'message': 'Not found'}, 404
+
+    return replication_schema.jsonify(book)
