@@ -1,0 +1,6 @@
+venv
+static
+templates
+.idea
+__pycache__
+db.sqlite
