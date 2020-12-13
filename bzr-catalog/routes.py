@@ -91,3 +91,9 @@ def update(book_id):
 
     # Otherwise, return the updated information of the book formatted with the schema object
     return update_schema.jsonify(book)
+
+
+# Dump endpoint
+@app.route('/dump/', methods=['GET'])
+def dump():
+    return dump_schema.jsonify(Book.dump())

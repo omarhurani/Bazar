@@ -54,6 +54,11 @@ class Book(db.Model):
         db.session.commit()
         return book
 
+    # Dump method to view all rows
+    @classmethod
+    def dump(cls):
+        return Book.query.all()
+
 
 # Add the 7 books as an initial entry to the database
 database_init += [
@@ -98,3 +103,10 @@ update_schema = UpdateSchema()
 replication_schema = ReplicationSchema()
 
 
+# Dump
+class DumpSchema(marshmallow.Schema):
+    class Meta:
+        fields = ('id', 'sequence_number', 'title', 'quantity', 'topic', 'price')
+
+
+dump_schema = DumpSchema(many=True)
