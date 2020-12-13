@@ -60,7 +60,7 @@ search_cache = Cache(max_size=10)
 @app.route('/invalidate/item/<book_id>', methods=['PUT'])
 def invalidate_item(book_id):
     # If book is cached, remove it
-    lookup_cache.remove(book_id)
+    lookup_cache.remove(int(book_id))
 
     return {}
 
@@ -69,6 +69,6 @@ def invalidate_item(book_id):
 @app.route('/invalidate/topic/<book_topic>', methods=['PUT'])
 def invalidate_topic(book_topic):
     # If topic is cached, remove it
-    search_cache.remove(book_topic)
+    search_cache.remove(book_topic.lower())
 
     return {}

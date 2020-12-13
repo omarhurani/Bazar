@@ -1,15 +1,14 @@
 import random
 
 from flask_app import CATALOG_ADDRESSES, app
-from requests import Timeout
+from requests import RequestException
 from book import Book, replication_schema
 from flask import request
-from netaddr import IPNetwork
 
 import requests
 
 
-timeout = 1
+timeout = 0.2
 
 
 class Replication:
@@ -42,15 +41,17 @@ class Replication:
                 # Should spawn threads to handle multiple concurrent requests
                 try:
                     # Request other servers to update the book
+                    data = {**max_item, 'sequence_number': sequence_number}
+                    print(data)
                     response = requests.put(f'{server}/rep/update/{id}',
-                                            data={**max_item, 'sequence_number': sequence_number})
+                                            json=data, timeout=timeout)
 
                     # If object is out of date, update the object of maximum sequence number
                     if response.status_code == 409:
                         if max_item is None or max_item['sequence_number'] < response.json()['sequence_number']:
                             max_item = response.json()
 
-                except Timeout:
+                except RequestException:
                     pass
 
             # If no object was out of date, the previous max item wouldn't be updated
@@ -76,19 +77,34 @@ class Replication:
         if id in self.updated_ids:
             return Book.get(id)
 
+        if requesters is None:
+            requesters = []
+
         # Filter out all servers which were requested before for this item
-        available_servers = self.get_catalog_addresses_pure() if requesters is None else \
-            [server for server in self.get_catalog_addresses_pure()
-             if len([requester for requester in requesters if IPNetwork(server) == IPNetwork(requester)]) == 0]
+        available_servers = self.catalog_addresses if requesters is None else \
+            [server for server in self.catalog_addresses if server not in requesters]
+             # if len([requester for requester in requesters if IPNetwork(server) == IPNetwork(requester)]) == 0]
 
         # If no server was left, assume copy of this server is the correct copy
         if len(available_servers) == 0:
             return Book.get(id)
 
         # Send a read request of the most up-to-date book to a random catalog server
-        server = random.choice(available_servers)
-        response = requests.get(f'{server}/rep/get/{id}',
-                                data={'requesters': requesters if requesters is not None else []})
+        server = None
+        while len(available_servers) > 0:
+            try:
+                server = random.choice(available_servers)
+                response = requests.get(f'{server}/rep/get/{id}',
+                                        json={'requesters': requesters if requesters is not None else []},
+                                        timeout=timeout)
+                break
+            except RequestException:
+                if server is not None:
+                    available_servers.remove(server)
+
+        # If no server was left, assume copy of this server is the correct copy
+        else:
+            return Book.get(id)
 
         # If the item could not be retrieved raise an error
         if response.status_code != 200:
@@ -113,7 +129,13 @@ replication = Replication(CATALOG_ADDRESSES)
 def replication_update(book_id):
     book_info = request.json
 
+    print(book_info)
+
+    book_id = int(book_id)
+
     book = Book.get(book_id)
+
+    print(book)
 
     # If local book is newer than the edit request, reject update
     if book.sequence_number > book_info['sequence_number']:
@@ -135,10 +157,12 @@ def replication_update(book_id):
 def replication_get(book_id):
 
     # Get list of servers that are requesting this item
-    requesters = list(request.json['requesters'])
+    requesters = []
+    if request.json is dict and 'requesters' in request.json:
+        requesters = list(request.json['requesters'])
 
     # Add the remote address (the server who sent this request) to the list
-    requesters.append(request.remote_addr)
+    requesters.extend([address for address in replication.catalog_addresses if request.remote_addr in address])
 
     try:
         # Get the book from replication

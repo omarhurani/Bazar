@@ -115,8 +115,8 @@ def buy(book_id):
 @app.route('/dump/', methods=['GET'])
 def dump():
     response = {
-        'lookup': [{'id': id, 'books': lookup_cache.cache[id]} for id in lookup_cache.lru_queue],
-        'search': [{'id': id, **search_cache.cache[id]} for id in search_cache.lru_queue]
+        'lookup': [{'id': id, **lookup_cache.cache[id]} for id in lookup_cache.lru_queue],
+        'search': [{'id': id, 'books': search_cache.cache[id]} for id in search_cache.lru_queue]
     }
     print(response)
     return response

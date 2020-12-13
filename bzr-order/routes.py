@@ -14,7 +14,7 @@ def buy(book_id):
     # Query the book from the catalog server
     try:
         book_response = requests.get(f'{CATALOG_ADDRESS}/query/item/{book_id}', timeout=timeout)
-    except requests.Timeout:
+    except requests.RequestException:
         return {'message': 'Could not connect to the catalog server'}, 504
 
     # If the response status is 404 not found, override the error message
@@ -35,7 +35,7 @@ def buy(book_id):
     # Otherwise, update the book quantity on the catalog server using the update message
     try:
         buy_response = requests.put(f'{CATALOG_ADDRESS}/update/{book_id}', json={'quantity': book['quantity']-1}, timeout=timeout)
-    except requests.Timeout:
+    except requests.RequestException:
         return {'message': 'Could not connect to the catalog server'}, 504
 
     # If any error occurs while updating, return the error as-is
