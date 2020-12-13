@@ -21,17 +21,17 @@ class Replication:
         self.catalog_addresses = catalog_addresses
         if type(self.catalog_addresses) is not list:
             self.catalog_addresses = []
-            self.updated_ids = set([])
+        self.updated_ids = set([])
 
     def update(self, id, book_info):
         # If no other catalog servers are registered, no need for replication measures
         if len(self.catalog_addresses) == 0:
-            Book.update(id,
-                        # title=book_data.get('title'),
-                        quantity=book_info.get('quantity'),
-                        # topic=book_data.get('topic'),
-                        price=book_info.get('price'))
-            return
+            return Book.update(id,
+                               # title=book_data.get('title'),
+                               quantity=book_info.get('quantity'),
+                               # topic=book_data.get('topic'),
+                               price=book_info.get('price'))
+
         # Keep requesting updates to all other catalog servers
         # until the write can be performed on the most up-to-date version
         prev_max_item = book_info
@@ -60,12 +60,12 @@ class Replication:
                 prev_max_item = max_item
 
         # Update book with the values of the most up-to-date book in all replicas
-        Book.update(id, **prev_max_item)
+        book = Book.update(id, **prev_max_item)
 
         # Mark book as updated
         self.updated_ids.add(id)
 
-        return max_item
+        return book
 
     def get(self, id, requesters: list = None):
         # If item is tracked as up-to-date, return
@@ -77,9 +77,9 @@ class Replication:
             [server for server in self.get_catalog_addresses_pure()
              if len([requester for requester in requesters if IPNetwork(server) == IPNetwork(requester)]) == 0]
 
-        # If no server was left, raise an error
+        # If no server was left, assume copy of this server is the correct copy
         if len(available_servers) == 0:
-            raise self.CouldNotGetUpdatedError()
+            return Book.get(id)
 
         # Send a read request of the most up-to-date book to a random catalog server
         server = random.choice(available_servers)
@@ -120,13 +120,16 @@ def replication_update(book_id):
     if book.sequence_number > book_info['sequence_number']:
         return replication_schema.jsonify(book), 409  # 409 Conflict
 
-    # Update sequence number manually
-    book_info['sequence_number'] += 1
-
     # Update the book with the retrieved book
-    Book.update(id, **book_info)
+    Book.update(book_id, **book_info)
 
-    return replication_schema.jsonify(book)
+    # Server responds with the old sequence number, so format response before updating
+    response = replication_schema.jsonify(Book.get(book_id))
+
+    # Update sequence number manually
+    Book.update(book_id, sequence_number=book_info['sequence_number']+1)
+
+    return response
 
 
 @app.route('/rep/get/<book_id>', methods=['GET'])
