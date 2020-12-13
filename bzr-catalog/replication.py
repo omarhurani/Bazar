@@ -23,7 +23,7 @@ class Replication:
             self.catalog_addresses = []
         self.updated_ids = set([])
 
-    def update(self, id, book_info):
+    def update(self, id, book_info) -> Book:
         # If no other catalog servers are registered, no need for replication measures
         if len(self.catalog_addresses) == 0:
             return Book.update(id,
@@ -59,6 +59,10 @@ class Replication:
             else:
                 prev_max_item = max_item
 
+        # If sequence number is explicitly mentioned, update it
+        if sequence_number in prev_max_item:
+            prev_max_item['sequence_number'] += 1
+
         # Update book with the values of the most up-to-date book in all replicas
         book = Book.update(id, **prev_max_item)
 
@@ -67,7 +71,7 @@ class Replication:
 
         return book
 
-    def get(self, id, requesters: list = None):
+    def get(self, id, requesters: list = None) -> Book:
         # If item is tracked as up-to-date, return
         if id in self.updated_ids:
             return Book.get(id)
@@ -90,13 +94,8 @@ class Replication:
         if response.status_code != 200:
             raise self.CouldNotGetUpdatedError()
 
-        # Update sequence number manually if it is in the info
-        new_book_info = response.json()
-        if 'sequence_number' in new_book_info:
-            new_book_info['sequence_number'] += 1
-
         # Update the book with the retrieved book
-        Book.update(id, **new_book_info)
+        Book.update(id, **response.json())
 
         # Mark this item as updated
         self.updated_ids.add(id)

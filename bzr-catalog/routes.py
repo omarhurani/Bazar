@@ -1,7 +1,8 @@
 from flask import request
 from flask_app import app
-from book import Book, topic_schema, item_schema, update_schema
+from book import Book, topic_schema, item_schema, update_schema, dump_schema
 from replication import replication, Replication
+import cache
 
 
 # Query-by-item request handler
@@ -77,6 +78,10 @@ def update(book_id):
 
     # Use the replication method to update the book and make sure all other replicas get the updated book
     book = replication.update(book_id, book_data)
+
+    # Invalidate cache
+    cache.invalidate_item(book_id)
+    cache.invalidate_topic(book.topic)
 
     # book = Book.update(book_id,
     #                    # title=book_data.get('title'),
