@@ -72,3 +72,14 @@ def invalidate_topic(book_topic):
     search_cache.remove(book_topic.lower())
 
     return {}
+
+
+# Test endpoint that dumps all the cache contents
+@app.route('/dump/', methods=['GET'])
+def dump():
+    response = {
+        'lookup': [{'id': id, **lookup_cache.cache[id]} for id in lookup_cache.lru_queue],
+        'search': [{'id': id, 'books': search_cache.cache[id]} for id in search_cache.lru_queue]
+    }
+    print(response)
+    return response

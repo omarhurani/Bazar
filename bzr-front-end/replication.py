@@ -31,6 +31,12 @@ class Replication:
 
         return address
 
+    def get_catalog_count(self):
+        return len(self.catalog_addresses)
+
+    def get_order_count(self):
+        return len(self.order_addresses)
+
 
 replication = Replication(CATALOG_ADDRESSES, ORDER_ADDRESSES)
 

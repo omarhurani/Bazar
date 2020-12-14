@@ -17,7 +17,7 @@ def search(book_topic):
             return jsonify(search_cache.get(topic))
 
     # Times to try to connect to catalog servers
-    tries = 4
+    tries = replication.get_catalog_count()
 
     for request_try in range(tries):
         try:
@@ -59,7 +59,7 @@ def lookup(book_id):
         return cached_book
 
     # Times to try to connect to catalog servers
-    tries = 4
+    tries = replication.get_catalog_count()
 
     for request_try in range(tries):
         try:
@@ -92,7 +92,7 @@ def buy(book_id):
         return {'message': 'Book ID must be a number'}, 422
 
     # Times to try to connect to order servers
-    tries = 4
+    tries = replication.get_order_count()
 
     for request_try in range(tries):
         try:
@@ -110,13 +110,3 @@ def buy(book_id):
     # Return the response from the order server as-is
     return response.text, response.status_code, response.headers.items()
 
-
-# Test endpoint that dumps all the cache contents
-@app.route('/dump/', methods=['GET'])
-def dump():
-    response = {
-        'lookup': [{'id': id, **lookup_cache.cache[id]} for id in lookup_cache.lru_queue],
-        'search': [{'id': id, 'books': search_cache.cache[id]} for id in search_cache.lru_queue]
-    }
-    print(response)
-    return response
