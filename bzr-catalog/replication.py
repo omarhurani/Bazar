@@ -47,7 +47,7 @@ class Replication:
                 try:
                     # Request other servers to check the book sequence_number
                     data = {'sequence_number': sequence_number}
-                    response = requests.put(f'{server}/rep/check/{id}',
+                    response = requests.get(f'{server}/rep/check/{id}',
                                             json=data, timeout=timeout)
 
                     # If object is out of date, update the object of maximum sequence number

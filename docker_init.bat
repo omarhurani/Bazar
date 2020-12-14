@@ -1,6 +1,6 @@
 :: Create a docker network for containers to run in
 :: This enables each container to be assign an IP address, which matches the one in the env vars files
-docker network create --gateway 172.18.0.1 --subnet 172.18.0.0/16  -d bridge "bazar"
+:: docker network create --gateway 172.18.0.1 --subnet 172.18.0.0/16  -d bridge "bazar"
 
 
 :: Create a docker image for each server
