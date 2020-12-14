@@ -16,6 +16,9 @@ class Replication:
     class CouldNotGetUpdatedError(RuntimeError):
         pass
 
+    class OutdatedUpdateError(RuntimeError):
+        pass
+
     def __init__(self, catalog_addresses):
         self.catalog_addresses = catalog_addresses
         if type(self.catalog_addresses) is not list:
@@ -31,41 +34,69 @@ class Replication:
                                # topic=book_data.get('topic'),
                                price=book_info.get('price'))
 
-        # Keep requesting updates to all other catalog servers
-        # until the write can be performed on the most up-to-date version
-        prev_max_item = book_info
         sequence_number = Book.get(id).sequence_number
-        while True:
-            max_item = book_info
+
+        # If book is not recorded as up-to-date
+        if id not in self.updated_ids:
+            # Check servers for latest version of book
+            max_sequence_number = sequence_number
+            max_item = None
+
             for server in self.catalog_addresses:
                 # Should spawn threads to handle multiple concurrent requests
                 try:
-                    # Request other servers to update the book
-                    data = {**max_item, 'sequence_number': sequence_number}
-                    print(data)
-                    response = requests.put(f'{server}/rep/update/{id}',
+                    # Request other servers to check the book sequence_number
+                    data = {'sequence_number': sequence_number}
+                    response = requests.put(f'{server}/rep/check/{id}',
                                             json=data, timeout=timeout)
 
                     # If object is out of date, update the object of maximum sequence number
                     if response.status_code == 409:
-                        if max_item is None or max_item['sequence_number'] < response.json()['sequence_number']:
+                        if max_sequence_number < response.json()['sequence_number']:
+                            max_sequence_number = response.json()['sequence_number']
                             max_item = response.json()
 
+                # Ignore non-alive servers
                 except RequestException:
                     pass
 
-            # If no object was out of date, the previous max item wouldn't be updated
-            if prev_max_item == max_item:
-                break
-            else:
-                prev_max_item = max_item
+            # After checking with servers, book might be in 2 states:
 
-        # If sequence number is explicitly mentioned, update it
-        if sequence_number in prev_max_item:
-            prev_max_item['sequence_number'] += 1
+            # 1. Up-to-date: Just mark it as up-to-date
 
-        # Update book with the values of the most up-to-date book in all replicas
-        book = Book.update(id, **prev_max_item)
+            # 2. Out-of-date: Server responds with the up-to-date book
+            # so local book is updated to the most up-to-date version
+
+            # In both states, book should be marked as up-to-date
+            self.updated_ids.add(id)
+
+            # If one of the checks fails
+            if max_item is not None:
+                # Update local book with the failed book
+                Book.update(id, **max_item)
+
+                # Raise an error that the update request wasn't valid
+                raise self.OutdatedUpdateError()
+
+        # If none of the checks fail, send an update request to all servers
+        for server in self.catalog_addresses:
+            # Should spawn threads to handle multiple concurrent requests
+            try:
+                # Request other servers to update the book
+                data = {'sequence_number': sequence_number, **book_info}
+                response = requests.put(f'{server}/rep/update/{id}',
+                                        json=data, timeout=timeout)
+
+                # If object is out of date, raise an error that the update wasn't valid
+                if response.status_code == 409:
+                    raise self.OutdatedUpdateError()
+
+            # Ignore non-alive servers
+            except RequestException:
+                pass
+
+        # Update the local book with the information
+        book = Book.update(id, **book_info)
 
         # Mark book as updated
         self.updated_ids.add(id)
@@ -129,13 +160,9 @@ replication = Replication(CATALOG_ADDRESSES)
 def replication_update(book_id):
     book_info = request.json
 
-    print(book_info)
-
     book_id = int(book_id)
 
     book = Book.get(book_id)
-
-    print(book)
 
     # If local book is newer than the edit request, reject update
     if book.sequence_number > book_info['sequence_number']:
@@ -176,3 +203,18 @@ def replication_get(book_id):
         return {'message': 'Not found'}, 404
 
     return replication_schema.jsonify(book)
+
+
+@app.route('/rep/check/<book_id>', methods=['GET'])
+def replication_check(book_id):
+    book_info = request.json
+
+    book_id = int(book_id)
+
+    book = Book.get(book_id)
+
+    # If local book is newer than the check request, respond that its not valid
+    if book.sequence_number > book_info['sequence_number']:
+        return replication_schema.jsonify(book), 409  # 409 Conflict
+
+    return {}

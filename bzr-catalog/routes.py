@@ -66,8 +66,7 @@ def update(book_id):
     if book_data is None:
         book_data = {}
 
-    # This will make sure that the book to be updated is the up-to-date book consistent with other servers
-    book = query_by_item(book_id)
+    book = Book.get(book_id)
 
     # If the book is None, that means that it doesn't exist in the database, so return an error message
     if book is None:
@@ -77,7 +76,12 @@ def update(book_id):
     # So the quantity updates should stay consistent across all servers
 
     # Use the replication method to update the book and make sure all other replicas get the updated book
-    book = replication.update(book_id, book_data)
+    try:
+        book = replication.update(book_id, book_data)
+
+    # If the update failed, return a fail response
+    except Replication.OutdatedUpdateError:
+        return {'message': 'Update could not be processed because the item is not up to date'}, 409
 
     # Invalidate cache
     cache.invalidate_item(book_id)
