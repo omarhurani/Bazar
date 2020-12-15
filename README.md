@@ -57,7 +57,18 @@ If no servers are left, the last server in the chain considers its version the c
 
 The following figures demonstrate how read requests flow between catalog servers.
 
-[Figures]
+*Note: Server numbers are displayed under the server. The number inside () is the sequence number for the sample object currently in that server. Bold server text means that that object is marked as valid in memory.*
+
+##### **Cold Start Read**
+![Cold Start Read](./images/replication/read_cold_start.png)
+
+##### **Read from an outdated server, with some servers having thier items marked as valid**
+![Read from an outdated server, with some servers having thier items marked as valid](./images/replication/read_some_outdated.png)
+
+##### **Read after all catalog servers were down at the same time**
+![Read after all catalog servers were down at the same time](./images/replication/read_total_failure.png)
+
+
 
 #### **Write**
 
@@ -69,15 +80,32 @@ After that, if the catalog server is still proceeding with the write operation (
 
 The following figures demonstrate how write requests are handled.
 
-[Figures]
+*Note: Server numbers are displayed under the server. The number inside () is the sequence number for the sample object currently in that server. Bold server text means that that object is marked as valid in memory.*
+
+##### **Write with all servers having same sequence number**
+![Write with all servers having same sequence number](./images/replication/write_marked_invalid.png)
+
+##### **Write on an outdated object**
+![Write on an outdated object](./images/replication/write_outdated.png)
 
 ### Order Servers
 
 Each order server communicates with one catalog server. If it can't reach it, it returns a Gateway Timeout error. It functions mostly the same as V1. The only difference is that checks if the write response error code is a Conflict error, it fetches the book again and repeats the attempt to write the book with a quantity reduced by one.
 
+If the order server cannot reach its catalog server (either in retreiving the book or when updating it), it returns a Gateway Timeout response.
+
 The following figures demonstrate how order requests are handled.
 
-[Figures]
+##### **Normal flow**
+![Normal flow](./images/replication/order_normal.png)
+
+##### **Book at catalog server is outdated**
+![Book at catalog server is outdated](./images/replication/order_outdated.png)
+
+*Note: In normal circumstances, this situation should not occur because the read operation will make sure that the object at the server is up-to-date, so the update request should have the most up-to-date object, but it was implemented just in case of any abnormal behavior in race conditions, etc...*
+
+##### **Catalog server is unreachable**
+![Catalog server is unreachable](./images/replication/order_cant_reach.png)
 
 ### Front-end Server
 
@@ -88,11 +116,21 @@ Environment Variable | Description | Example
 `CATALOG_ADDRESSES` | The addresses of the catalog servers. Addresses are seperated by a `\|` character | `http://catalog1.bazar.com\| http://catalog2.bazar.com\| http://catalog3.bazar.com`
 `ORDER_ADDRESSES` | The addresses of the order servers. Addresses are seperated by a `\|` character | `http://order1.bazar.com\| http://order2.bazar.com\| http://order3.bazar.com`
 
-After they are imported, they are used in a round-robin fassion. The front-end server attempts to connect with the server with the current turn, and proceeds normally if successful. Otherwise, it tries the other servers one by one. If none can be reached, it returns a Gateway Timeout error response.
+After they are imported, they are used in a round-robin fassion. The front-end server attempts to connect with the server with the current turn, and proceeds normally if successful. Otherwise, it tries the other servers one by one. If none can be reached, it returns a Gateway Timeout error response. It also handles Gateway Timeout responses from order servers (catalog server for that order server is down) the same way as a failed connection, and attempts to connect to a new order server.
 
 The following figures demonstrate how replication is handled at the front-end side.
 
-[Figures]
+##### **Normal flow**
+![Normal flow](./images/replication/frontend_normal.png)
+
+##### **Some servers are unreachable (same on order and catalog)**
+![Some servers are unreachable (same on order and catalog)](./images/replication/frontend_some_down.png)
+
+##### **Some order servers can't reach their catalog server**
+![Some order servers can't reach their catalog server](./images/replication/frontend_order_gateway_timeout.png)
+
+##### **All servers are unreachable (same on order and catalog)**
+![All servers are unreachable (same on order and catalog)](./images/replication/frontend_all_down.png)
 
 ---
 
