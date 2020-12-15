@@ -14,9 +14,13 @@ Caching book lookups was simple. The key was the ID of the book and the value wa
 
 In the catalog server, when an update is performed on a book, it sends a request with the ID of that book to the invalidation end-point of the front-end server in order to remove it from its cache. This also implies that the catalog server needs to know the address of the front-end server, so it is added to the environment variables needed for it.
 
+The following figures demonstrate how lookup caching operates.
+
 ### Search Caching
 
+Caching search results is a little bit more tricky, since changes to a book could invalidate a whole topic (however, in Bazar, updates done don't modify fields that are returned in search results, so invalidating is not nessecary, but I implemented it anyways). I approached this problem by using the search string as the key, and the entry being two things, the JSON response of the search operation, and a set of all topics included in that response. When the catalog server sends an invalidate request for a topic on its end-point in the front-end server, all cached items are checked for their topic set, and any topic set that includes that topic are removed from the cache. Another end-point was added that allows catalog servers to clear the cache completely. This is useful when a new book needs to be added in the future.
 
+The following figures demonstrate how search caching operates.
 
 ---
 
@@ -89,3 +93,8 @@ After they are imported, they are used in a round-robin fassion. The front-end s
 The following figures demonstrate how replication is handled at the front-end side.
 
 [Figures]
+
+---
+
+## Metrics
+
