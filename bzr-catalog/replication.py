@@ -103,7 +103,7 @@ class Replication:
 
         return book
 
-    def get(self, id, max_sequence_number: int, requesters: list = None) -> Book:
+    def get(self, id, max_sequence_number: int = None, requesters: list = None) -> Book:
 
         book = Book.get(id)
 
@@ -135,7 +135,8 @@ class Replication:
                                             'requesters': requesters if requesters is not None else [],
                                             'sequence_number':
                                                 max_sequence_number
-                                                if max_sequence_number > sequence_number
+                                                if max_sequence_number is not None
+                                                and max_sequence_number > sequence_number
                                                 else sequence_number
                                         },
                                         timeout=timeout)
@@ -154,7 +155,7 @@ class Replication:
 
             # If the sequence number from the previous hops is larger,
             # This server doesn't have an up-to-date version
-            if max_sequence_number > sequence_number:
+            if max_sequence_number is not None and max_sequence_number > sequence_number:
                 raise self.OutdatedError
 
             # Else, consider the local item an up-to-date version

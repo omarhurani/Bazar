@@ -79,8 +79,7 @@ search_cache = Cache(max_size=10)
 @app.route('/invalidate/item/<book_id>', methods=['DELETE'])
 def invalidate_item(book_id):
     # If book is cached, remove it
-    if book_id in lookup_cache:
-        lookup_cache.remove(int(book_id))
+    lookup_cache.remove(int(book_id))
 
     return '', 204
 
