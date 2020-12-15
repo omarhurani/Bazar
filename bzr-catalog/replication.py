@@ -8,7 +8,10 @@ from flask import request
 import requests
 
 
-timeout = 0.2
+# 1 second timeout for all connection
+# 100 millisecond timeout for connection establishment
+# (assuming that the maximum time for an operation was calculated)
+timeout = (0.1, 1)
 
 
 class Replication:
@@ -17,6 +20,9 @@ class Replication:
         pass
 
     class OutdatedError(RuntimeError):
+        pass
+
+    class BookNotFoundError(RuntimeError):
         pass
 
     def __init__(self, catalog_addresses):
@@ -34,7 +40,11 @@ class Replication:
                                # topic=book_data.get('topic'),
                                price=book_info.get('price'))
 
-        sequence_number = Book.get(id).sequence_number
+        book = Book.get(id)
+        if book is None:
+            raise self.BookNotFoundError()
+
+        sequence_number = book.sequence_number
 
         # If book is not recorded as up-to-date
         if id not in self.updated_ids:
@@ -110,6 +120,9 @@ class Replication:
         # If item is tracked as up-to-date, return
         if id in self.updated_ids:
             return book
+
+        if book is None:
+            raise self.BookNotFoundError
 
         sequence_number = book.sequence_number
 

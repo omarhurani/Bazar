@@ -10,7 +10,7 @@ def query_by_item(book_id):
     # Use the replication get method to make sure that the queried book is not outdated
     try:
         return replication.get(book_id)
-    except Replication.CouldNotGetUpdatedError:
+    except (Replication.CouldNotGetUpdatedError, Replication.BookNotFoundError):
         return None
 
 

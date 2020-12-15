@@ -22,7 +22,7 @@ def search(book_topic):
             # Get book from the catalog server
             response = requests.get(f'{replication.get_catalog_address()}/query/topic/{book_topic}', timeout=timeout)
             break
-        except requests.Timeout:
+        except requests.RequestException:
             pass
 
     # If the loop completes all tries without being able to reach a server
@@ -71,7 +71,7 @@ def lookup(book_id):
             # Get the list of books from the catalog server
             response = requests.get(f'{replication.get_catalog_address()}/query/item/{book_id}', timeout=timeout)
             break
-        except requests.Timeout:
+        except requests.RequestException:
             pass
     # If the loop completes all tries without being able to reach a server
     else:
@@ -102,11 +102,12 @@ def buy(book_id):
     for request_try in range(tries):
         try:
             # Forward the request to the order server
-            response = requests.put(f'{replication.get_order_address()}/buy/{book_id}', timeout=timeout*5)
+            response = requests.put(f'{replication.get_order_address()}/buy/{book_id}',
+                                    timeout=tuple([_*2 for _ in timeout]))
             if response.status_code == 504:
                 continue
             break
-        except requests.Timeout:
+        except requests.RequestException:
             pass
     # If the loop completes all tries without being able to reach a server
     else:

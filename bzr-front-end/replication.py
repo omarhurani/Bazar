@@ -40,6 +40,7 @@ class Replication:
 
 replication = Replication(CATALOG_ADDRESSES, ORDER_ADDRESSES)
 
-# 1 second timeout
-# (assuming that the maximum time for an operation was calculated to be 1 second)
-timeout = 1
+# 2 second timeout for all connection
+# 200 millisecond timeout for connection establishment
+# (assuming that the maximum time for an operation was calculated)
+timeout = (0.2, 2.0)

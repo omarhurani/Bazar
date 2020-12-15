@@ -1,7 +1,10 @@
 from flask_app import app, CATALOG_ADDRESS
 import requests
 
-timeout = 1
+# 1.5 second timeout for all connection
+# 150 millisecond timeout for connection establishment
+# (assuming that the maximum time for an operation was calculated)
+timeout = (0.15, 1.5)
 
 
 # Buy endpoint
