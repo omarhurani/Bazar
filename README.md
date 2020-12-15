@@ -14,13 +14,9 @@ Caching book lookups was simple. The key was the ID of the book and the value wa
 
 In the catalog server, when an update is performed on a book, it sends a request with the ID of that book to the invalidation end-point of the front-end server in order to remove it from its cache. This also implies that the catalog server needs to know the address of the front-end server, so it is added to the environment variables needed for it.
 
-The following figures demonstrate how lookup caching operates.
-
 ### Search Caching
 
 Caching search results is a little bit more tricky, since changes to a book could invalidate a whole topic (however, in Bazar, updates done don't modify fields that are returned in search results, so invalidating is not nessecary, but I implemented it anyways). I approached this problem by using the search string as the key, and the entry being two things, the JSON response of the search operation, and a set of all topics included in that response. When the catalog server sends an invalidate request for a topic on its end-point in the front-end server, all cached items are checked for their topic set, and any topic set that includes that topic are removed from the cache. Another end-point was added that allows catalog servers to clear the cache completely. This is useful when a new book needs to be added in the future.
-
-The following figures demonstrate how search caching operates.
 
 ---
 
@@ -134,5 +130,87 @@ The following figures demonstrate how replication is handled at the front-end si
 
 ---
 
+## Dockerization
+
+For each server, a `Dockerfile` file is included in order to be able to create docker images for each server. It is set up to use the latest `alpine` image as a base, install `python` and `pip` on it, expose the needed ports and set the start-up command for each server.
+
+Moreover, a [Windows batch file](./docker_init.bat) is included that sets up a user-defined Docker network, creates the images and runs them in 5 containers.
+
+Finally, the folder [env-vars](./env-vars) contains the enviroment variables that are needed for each Docker container to run properly. These files are referenced in the batch file. If more containers are to be added, the appropriate envrionement variables need to be modified for the existing containers and added for the new ones.
+
+---
+
 ## Metrics
 
+### Bazar V1 vs Bazar V2
+
+In this section, I will be comparing the overall system performance for both Bazar V1 running on 3 virtual machines and Bazar V2 running with 2 replicas of order and catalog servers on Docker containers running on WSL.
+
+Bazar V2 is running with 2 replicas for catalog and order servers, a cache of size 3 for book entries and of size 10 for search queries.
+
+#### **Look-ups, all valid IDs**
+In this test, 200 look-up requests were sent to each front-end server. All IDs sent exist in the catalog server(s) **(1 - 7)**. Bazar V2 started with an empty cache. The 200 numbers are random, but are identical for both verisons. 
+
+Average response times were as follows:
+
+Bazar V1 | Bazar V2
+--- | ---
+10.62 ms | 4.55 ms
+
+We can see that the cache had a **57.16%** improvement when it came to many valid read operations.
+
+#### **Look-ups, some invalid IDs**
+This test the same as before. However, some of the IDs sent don't exist in the catalog server(s) **(1 - 7) and (8 - 10)**. Bazar V2 started with an empty cache. The 200 numbers are random, but are identical for both versions. 
+
+Average response times were as follows:
+
+Bazar V1 | Bazar V2
+--- | ---
+11.97 ms | 76.73 ms
+
+Here, the improvement decreased, since non-existent items are always requested from catalog servers. In fact, the improvement decreased to **35.44%**. It is still better with a cache than without one.
+
+#### **Look-ups, some invalidations**
+
+#### **Writes**
+From the design of the system, writes are expected to behave worse than Bazar V1, due to the cache and replication consistency operations that add up extra time. All books were set to 200 books in stock, and 200 buy operations were performed on random books, which were identical for both versions.
+
+Average response times were as follows:
+
+Bazar V1 | Bazar V2
+--- | ---
+39.21 ms | 44.78 ms
+
+As it can be seen, Bazar V2 has a performance hit of about **14.21%** when it comes to writes, due to messages exchanged between catalog servers to guarantee replication consistency and between them and the front-end server for cache consistency.
+
+#### **Conclusion**
+As it can be seen, Bazar V2 easily defeats Bazar V1 in terms of read speeds. However, it lacks behind when it comes to write speeds.
+
+### Outage
+
+In this section, I will see how Bazar V2 performs when an outage occurs. 
+
+Since Bazar V2 supports replication, and some servers may go down, timeouts have to be define for communications between servers. Timeout values for servers are as follows
+
+Server | Connection Establishment Timeout | Full Timeout | Notes
+--- | --- | --- | ---
+Front End | 200 ms | 2000 ms | Doubled for `/buy` operations
+Order | 150 ms | 1500 ms | -
+Catalog | 100 ms | 1000 ms | -
+
+These timeout values will be the main determiner of the performace of Bazar V2 in outage situations. They have to be monitored and tuned in order to reduce timeout values as much as possible without running into pre-mature timeouts (where a server times out because it takes too long to do the operation, not because it is down).
+
+Of course, if all servers of a specific type go down, Bazar V2 becomes unusable. Since the current deployed system has 2 replicas of order and catalog servers, there are mainly 3 tests to be performed:
+
+1. Read requests when a catalog server is down
+2. Write requests when a catalog server is down (order server for that catalog server is still up)
+3. Write requests when an order server is down
+
+Tests were performed using 50 identical random read and buy requests. Results were as follows:
+
+- | No outage | Order outage | Catalog outage 
+--- | --- | --- | --- 
+Read | 5.9 ms | No effect | 111.78 ms
+Write | 45.85 ms | 447.58 ms | 288.29 ms
+
+As expected, Bazar V2 receives a performance hit one some servers are down. As I said before, timeout values have to be fine tuned to reduce this hit as much as possible. Theoretically, this performance hit should decrease once the number of replicas starts to increase, since connections to down servers happen less frequently, especially in reads. Moreover, the server choice algorithm at the front-end side could be tuned to better adjust to down servers and mark failed requests and make less requests to the server which fails more.
