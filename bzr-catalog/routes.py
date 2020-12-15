@@ -80,7 +80,7 @@ def update(book_id):
         book = replication.update(book_id, book_data)
 
     # If the update failed, return a fail response
-    except Replication.OutdatedUpdateError:
+    except Replication.OutdatedError:
         return {'message': 'Update could not be processed because the item is not up to date'}, 409
 
     # Invalidate cache

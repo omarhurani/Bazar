@@ -16,7 +16,7 @@ class Replication:
     class CouldNotGetUpdatedError(RuntimeError):
         pass
 
-    class OutdatedUpdateError(RuntimeError):
+    class OutdatedError(RuntimeError):
         pass
 
     def __init__(self, catalog_addresses):
@@ -76,7 +76,7 @@ class Replication:
                 Book.update(id, **max_item)
 
                 # Raise an error that the update request wasn't valid
-                raise self.OutdatedUpdateError()
+                raise self.OutdatedError()
 
         # If none of the checks fail, send an update request to all servers
         for server in self.catalog_addresses:
@@ -89,7 +89,7 @@ class Replication:
 
                 # If object is out of date, raise an error that the update wasn't valid
                 if response.status_code == 409:
-                    raise self.OutdatedUpdateError()
+                    raise self.OutdatedError()
 
             # Ignore non-alive servers
             except RequestException:
@@ -103,10 +103,15 @@ class Replication:
 
         return book
 
-    def get(self, id, requesters: list = None) -> Book:
+    def get(self, id, max_sequence_number: int, requesters: list = None) -> Book:
+
+        book = Book.get(id)
+
         # If item is tracked as up-to-date, return
         if id in self.updated_ids:
-            return Book.get(id)
+            return book
+
+        sequence_number = book.sequence_number
 
         if requesters is None:
             requesters = []
@@ -126,7 +131,13 @@ class Replication:
             try:
                 server = random.choice(available_servers)
                 response = requests.get(f'{server}/rep/get/{id}',
-                                        json={'requesters': requesters if requesters is not None else []},
+                                        json={
+                                            'requesters': requesters if requesters is not None else [],
+                                            'sequence_number':
+                                                max_sequence_number
+                                                if max_sequence_number > sequence_number
+                                                else sequence_number
+                                        },
                                         timeout=timeout)
                 break
             except RequestException:
@@ -135,11 +146,30 @@ class Replication:
 
         # If no server was left, assume copy of this server is the correct copy
         else:
-            return Book.get(id)
+            self.updated_ids.add(id)
+            return book
+
+        # If the following servers did not find any item that might be newer
+        if response.status_code == 409:
+
+            # If the sequence number from the previous hops is larger,
+            # This server doesn't have an up-to-date version
+            if max_sequence_number > sequence_number:
+                raise self.OutdatedError
+
+            # Else, consider the local item an up-to-date version
+            else:
+                # Mark it as up-to-date
+                self.updated_ids.add(id)
+                return book
 
         # If the item could not be retrieved raise an error
         if response.status_code != 200:
             raise self.CouldNotGetUpdatedError()
+
+        # The sequence number of the response must be larger than or equal to the current sequence number
+        # If not, it will have a code 409 CONFLICT
+        # This means that at this point in the code, the returned item is considered the up-to-date item
 
         # Update the book with the retrieved book
         Book.update(id, **response.json())
@@ -188,16 +218,25 @@ def replication_get(book_id):
     if request.json is dict and 'requesters' in request.json:
         requesters = list(request.json['requesters'])
 
+    # Get the max sequence number between all hops
+    sequence_number = 0
+    if request.json is dict and 'sequence_number' in request.json:
+        sequence_number = request.json['sequence_number']
+
     # Add the remote address (the server who sent this request) to the list
     requesters.extend([address for address in replication.catalog_addresses if request.remote_addr in address])
 
     try:
         # Get the book from replication
-        book = replication.get(int(book_id), requesters=requesters)
+        book = replication.get(int(book_id), max_sequence_number=sequence_number, requesters=requesters)
 
     # If book could not be retrieved (nobody has it)
     except Replication.CouldNotGetUpdatedError:
         return {'message': 'Not found'}, 404
+
+    # If no newer book was found
+    except Replication.OutdatedError:
+        return {'message': 'No book with newer version was found'}, 409
 
     if book is None:
         return {'message': 'Not found'}, 404
