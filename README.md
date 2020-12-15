@@ -28,7 +28,7 @@ The first modification made to the catalog server was the needed environment var
 
 Environment Variable | Description | Example
 -------------------- | ----------- | -------
-`CATALOG_ADDRESSES` | The addresses of the other catalog servers. Addresses are seperated by a `|` character | `http://catalog2.bazar.com| http://catalog2.bazar.com`
+`CATALOG_ADDRESSES` | The addresses of the other catalog servers. Addresses are seperated by a `\|` character | `http://catalog2.bazar.com| http://catalog2.bazar.com`
 
 
 Consistency issues rise in both read and write operations.
@@ -81,8 +81,8 @@ Changes to the front-end server are more than the changes to the order servers, 
 
 Environment Variable | Description | Example
 -------------------- | ----------- | -------
-`CATALOG_ADDRESSES` | The addresses of the catalog servers. Addresses are seperated by a `|` character | `http://catalog1.bazar.com| http://catalog2.bazar.com| http://catalog3.bazar.com`
-`ORDER_ADDRESSES` | The addresses of the order servers. Addresses are seperated by a `|` character | `http://order1.bazar.com| http://order2.bazar.com| http://order3.bazar.com`
+`CATALOG_ADDRESSES` | The addresses of the catalog servers. Addresses are seperated by a `\|` character | `http://catalog1.bazar.com| http://catalog2.bazar.com| http://catalog3.bazar.com`
+`ORDER_ADDRESSES` | The addresses of the order servers. Addresses are seperated by a `\|` character | `http://order1.bazar.com| http://order2.bazar.com| http://order3.bazar.com`
 
 After they are imported, they are used in a round-robin fassion. The front-end server attempts to connect with the server with the current turn, and proceeds normally if successful. Otherwise, it tries the other servers one by one. If none can be reached, it returns a Gateway Timeout error response.
 
