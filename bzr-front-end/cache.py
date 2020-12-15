@@ -43,6 +43,11 @@ class Cache:
             self.cache.pop(id)
             self.lru_queue.remove(id)
 
+    # Clear all entries from cache
+    def clear(self):
+        self.cache.clear()
+        self.lru_queue.clear()
+
     # Get all keys of cached items
     def ids(self):
         return list(self.lru_queue)
@@ -52,26 +57,58 @@ class Cache:
         return id in self.cache
 
 
+# Define class for search entry
+class SearchEntry:
+    def __init__(self, search_result):
+        # Set of topics stored in this entry
+        # This is needed to invalidate the topic when necessary
+        self.topics = set([book['topic'] for book in search_result])
+
+        # The entry itself
+        self.search_result = search_result
+
+    def __contains__(self, item):
+        return item in self.topics
+
+
 lookup_cache = Cache()
 search_cache = Cache(max_size=10)
 
 
 # Route used by catalog servers to invalidate book entries
-@app.route('/invalidate/item/<book_id>', methods=['PUT'])
+@app.route('/invalidate/item/<book_id>', methods=['DELETE'])
 def invalidate_item(book_id):
     # If book is cached, remove it
-    lookup_cache.remove(int(book_id))
+    if book_id in lookup_cache:
+        lookup_cache.remove(int(book_id))
 
-    return {}
+    return '', 204
+
+
+# Route used by catalog servers to invalidate all cached book topics
+# This is used when a new book is added, since it might appear in search caches
+
+# There could be a better algorithm to find out if the book can exist in the search
+# results, but this is a simpler approach
+@app.route('/invalidate/topic/', methods=['DELETE'])
+def invalidate_all_topics():
+    # Remove any entry containing this topic
+    search_cache.clear()
+    return '', 204
 
 
 # Route used by catalog servers to invalidate book topics
-@app.route('/invalidate/topic/<book_topic>', methods=['PUT'])
+@app.route('/invalidate/topic/<book_topic>', methods=['DELETE'])
 def invalidate_topic(book_topic):
-    # If topic is cached, remove it
-    search_cache.remove(book_topic.lower())
 
-    return {}
+    containing_entries = [key for key, value in search_cache.cache.items()
+                          if book_topic in value.topics]
+
+    # Remove any entry containing this topic
+    for entry in containing_entries:
+        search_cache.remove(entry)
+
+    return '', 204
 
 
 # Test endpoint that dumps all the cache contents
@@ -79,7 +116,10 @@ def invalidate_topic(book_topic):
 def dump():
     response = {
         'lookup': [{'id': id, **lookup_cache.cache[id]} for id in lookup_cache.lru_queue],
-        'search': [{'id': id, 'books': search_cache.cache[id]} for id in search_cache.lru_queue]
+        'search': [{'id': id,
+                    'topics': list(search_cache.cache[id].topics),
+                    'search_result': search_cache.cache[id].search_result}
+                   for id in search_cache.lru_queue]
     }
     print(response)
     return response

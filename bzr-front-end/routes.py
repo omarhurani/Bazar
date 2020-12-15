@@ -2,7 +2,7 @@ from flask import jsonify
 
 from flask_app import app
 from replication import replication, timeout
-from cache import lookup_cache, search_cache
+from cache import lookup_cache, search_cache, SearchEntry
 import requests
 
 
@@ -11,10 +11,8 @@ import requests
 def search(book_topic):
 
     # If topic is in cache, just get the books from it
-    cached_topics = search_cache.ids()
-    for topic in cached_topics:
-        if book_topic.lower() == topic:
-            return jsonify(search_cache.get(topic))
+    if book_topic.lower() in search_cache:
+        return jsonify(search_cache.get(book_topic.lower()).search_result)
 
     # Times to try to connect to catalog servers
     tries = replication.get_catalog_count()
@@ -34,13 +32,20 @@ def search(book_topic):
     # If any books were found, cache their topics
     # This will cache all the topics found if the cache can fit
     if response.status_code == 200 and isinstance(response.json(), list):
-        for book_info in response.json():
-            if book_info['topic'].lower() not in search_cache:
-                search_cache.insert(
-                    book_info['topic'].lower(),
-                    [book_info_ for book_info_ in response.json()
-                     if book_info_['topic'].lower() == book_info['topic'].lower()]
-                )
+
+        # Cache this search operation
+        search_cache.insert(
+            book_topic.lower(),
+            SearchEntry(response.json())
+        )
+
+        # for book_info in response.json():
+        #     if book_info['topic'].lower() not in search_cache:
+        #         search_cache.insert(
+        #             book_info['topic'].lower(),
+        #             [book_info_ for book_info_ in response.json()
+        #              if book_info_['topic'].lower() == book_info['topic'].lower()]
+        #         )
 
     # Return the catalog server response as-is
     return response.text, response.status_code, response.headers.items()
