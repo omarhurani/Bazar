@@ -208,7 +208,7 @@ Of course, if all servers of a specific type go down, Bazar V2 becomes unusable.
 
 Tests were performed using 50 identical random read and buy requests. Results were as follows:
 
-- | No outage | Order outage | Catalog outage 
+-- | No outage | Order outage | Catalog outage 
 --- | --- | --- | --- 
 Read | 5.9 ms | No effect | 111.78 ms
 Write | 45.85 ms | 447.58 ms | 288.29 ms
